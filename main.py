@@ -36,5 +36,17 @@ decks = []
 # print(deck)
 # print(help(random))
 
-for x in np.arange(0,1,.01):
-    print(x)
+seeds = [x for x in np.arange(0,1,.01)]
+
+for seed in seeds:
+
+    # newcards = cards
+
+    decks.append(cards)
+    random.shuffle(cards)
+
+df = pd.DataFrame(decks)
+print(df.head())
+
+# for x in seeds:
+#     print(x)
