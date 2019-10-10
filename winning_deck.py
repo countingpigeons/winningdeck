@@ -22,23 +22,33 @@ class Base:
             base_deck_list.append(card+'_'+suit)
 
     cardvalues = cards * 4
-    colors = ['Red']*26
-    colors.extend(['Black']*26)
+    colors = ['Black']*26
+    colors.extend(['Red']*26)
+
+    tuples = list(zip(base_deck_list, cardvalues, colors))
+    deck_df = pd.DataFrame(tuples)
 
     deck = pd.Series(base_deck_list)
+
 
 
 class Deck:
     def __init__(self, index):
         self.deck = Base.deck[index].values
+        self.deck_df = Base.deck_df.loc[index, :]#[index]
         self.cardvalues = Base.cardvalues
         self.colors = Base.colors
+        self.tuples = Base.tuples
+        self.index = index
         pass
 
     def summary(self):
         print('OriginalDeckOrder: {}'.format(self.deck))
-        print('CardValues: {}'.format(self.cardvalues))
-        print('Colors: {}'.format(self.colors))
+        # print('CardValues: {}'.format(self.cardvalues))
+        # print('Colors: {}'.format(self.colors))
+        # print('Tuples: {}'.format(self.tuples))
+        print('DeckDF: {}'.format(self.deck_df))
+        print('Index: {}'.format(self.index))
 
     def deal_piles(self):
         pass
