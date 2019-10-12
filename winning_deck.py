@@ -16,26 +16,27 @@ class Base:
     cards = list(np.arange(2, 11).astype('str'))
     cards.extend('JQKA')
 
-    base_deck_list = []
+    cardlables = []
     for suit in suits:
         for card in cards:
-            base_deck_list.append(card+'_'+suit)
+            cardlables.append(card+'_'+suit)
+
 
     cardvalues = cards * 4
     colors = ['Black']*26
     colors.extend(['Red']*26)
 
-    tuples = list(zip(base_deck_list, cardvalues, colors))
+    tuples = list(zip(cardlables, cardvalues, colors))
     deck_df = pd.DataFrame(tuples)
 
-    deck = pd.Series(base_deck_list)
+    deck = pd.Series(cardlables)
 
 
 
 class Deck:
     def __init__(self, index):
         self.deck = Base.deck[index].values
-        self.deck_df = Base.deck_df.loc[index, :]#[index]
+        self.deck_df = Base.deck_df.loc[index, :]
         self.cardvalues = Base.cardvalues
         self.colors = Base.colors
         self.tuples = Base.tuples

@@ -1,6 +1,9 @@
 *.png
+winning_deck_pure_python.ipynb
 test.png
 test_matplotlib.py
 .idea
 solitaire_venv
 privateinfofile
+.ipynb_checkpoints
+.gitignore
