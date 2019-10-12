@@ -1,5 +1,6 @@
 import random
 
+
 def create_random_deck_indexes(n=5):
     index = [i for i in range(0, 52)]
     indicies = []
@@ -14,6 +15,7 @@ def create_random_deck_indexes(n=5):
     # print(indicies)
     return indicies
 
+
 class Base:
     suits = ['S', 'C', 'H', 'D']
     suits52 = []
@@ -26,37 +28,36 @@ class Base:
         for card in cardvals:
             labels52.append(card + '_' + suit)
 
-    # now that cardvals has been used for labels, reset this with pure numeric values to make play easier.
+    # now that cardvals has been used for labels, reset this with pure numeric
+    # values to make play easier.
     cardvals = [card for card in range(2, 14)] + [1]
     cardvals52 = cardvals * 4
     colors52 = ['Black'] * 26 + ['Red'] * 26
 
-    rawdeck = [list(item) for item in zip(labels52, cardvals52, colors52, suits52)]
+    deck = [list(item) for item in
+            zip(labels52, cardvals52, colors52, suits52)]
 
 
 class SolitaireGame:
-    label = 0
-    val = 1
-    color = 2
-    suit = 3
 
     def __init__(self, randindex):
         # add this specific randindex to rawdeck and sort it by this index.
         deck = []
         i = 0
-        for item in Base.rawdeck:
+        for item in Base.deck:
             deck.append(item + [randindex[i]])
             i += 1
         deck = sorted(deck, key=lambda x: x[4])
         # deck = [tuple(item) for item in deck]
-        deck = list(map(lambda x: {'label': x[0], 'value': x[1], 'color': x[2], 'suit': x[3]}, deck))
+        deck = list(
+            map(lambda x: {'label': x[0], 'value': x[1],
+                           'color': x[2], 'suit': x[3]}, deck))
         self.deck = deck
 
     def summary(self):
-        # print('OriginalDeckOrder: {}\n'.format(Base.rawdeck))
-        print('ShuffledDeck: {}\n'.format(list(map(lambda x: x['label'], self.deck))))
-        # print(color)
-        pass
+        # print('OriginalDeckOrder: {}\n'.format(Base.deck))
+        print('ShuffledDeck: {}\n'.format(list(map(lambda x: x['label'],
+                                                   self.deck))))
 
     def deal_piles(self):
         pass
@@ -76,7 +77,8 @@ class SolitaireGame:
     def play_onto_piles(self):
         pass
 
-#     ALSO, I WILL WANT SOME KIND OF LOGGING AS WE 'PLAY' SO I CAN QA/SPOT-CHECK THE LOGIC (PHAPS W/ REAL DECK?)
+#     ALSO, I WILL WANT SOME KIND OF LOGGING AS WE 'PLAY' SO I CAN
+# QA/SPOT-CHECK THE LOGIC (PHAPS W/ REAL DECK?)
 
 
 def PlaySolitaire(numdecks):
