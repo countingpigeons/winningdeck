@@ -9,3 +9,5 @@ solitaire_venv
 privateinfofile
 .ipynb_checkpoints
 .gitignore
+winning_deck_archive*
+winning_deck_moves.log
