@@ -74,7 +74,7 @@ class SolitaireGame:
         self.heart_pile = []
         self.diamond_pile = []
         self.pile1 = []
-        self.pile1_hidden = []  # created to simplify indexing. will remain empty.
+        self.pile1_hidden = []  # created to simplify indexing. remains empty.
         self.pile2 = []
         self.pile2_hidden = []
         self.pile3 = []
@@ -87,14 +87,17 @@ class SolitaireGame:
         self.pile6_hidden = []
         self.pile7 = []
         self.pile7_hidden = []
-        self.suit_piles = [self.spade_pile, self.club_pile, self.heart_pile, self.diamond_pile]
+        self.suit_piles = [self.spade_pile, self.club_pile,
+                           self.heart_pile, self.diamond_pile]
         self.suit_index = {'S': 0, 'C': 1, 'H': 2, 'D': 3}
-        self.hidden_piles = [self.pile1_hidden, self.pile2_hidden, self.pile3_hidden, self.pile4_hidden,
-                             self.pile5_hidden, self.pile6_hidden, self.pile7_hidden]
+        self.hidden_piles = [self.pile1_hidden, self.pile2_hidden,
+                             self.pile3_hidden, self.pile4_hidden,
+                             self.pile5_hidden, self.pile6_hidden,
+                             self.pile7_hidden]
         self.piles = [self.pile1, self.pile2, self.pile3,
                       self.pile4, self.pile5, self.pile6, self.pile7]
         self.play_pile = []
-        self.play_piles = [self.play_pile]  # created to simplify indexing. always one pile.
+        self.play_piles = [self.play_pile]  # created to simplify indexing.
         self.game_lost = False
         self.game_won = False
         self.move_number = 0
@@ -124,6 +127,7 @@ class SolitaireGame:
             print(self.play_pile[-1]['label'])
         else:
             print('N/A')
+        print('# in deck: {}'.format(len(self.deck)))
         # print('Deck:')
         # for card in self.deck:
         #     print(card['label'])
@@ -500,28 +504,45 @@ class SolitaireGame:
         card_index = 0
         # piles = self.piles
 
-        if type == 'pile0th':
-            card_index = 0
+        if type == 'pile_deep':
+            # card_index = -1
             piles = self.piles
-        elif type == 'pile-1th':
-            card_index = -1
-            piles = self.piles
-        elif type == 'suit_piles':
-            card_index = -1
-            piles = self.suit_piles
-        elif type == 'play_pile':
-            card_index = -1
-            piles = self.play_piles
+            for index, pile in enumerate(piles):
+                len_pile = len(pile)
+                if len_pile > 0:  # not top card
+                    for card_index, card in enumerate(pile):
+                        if card_index < len_pile - 1:
+                            candidates.append({'candidate_type': type,
+                                               'pile_index': index,
+                                               'card_index': card_index,
+                                               'pile_len': len_pile,
+                                               'label': card['label'],
+                                               'value': card['value'],
+                                               'color': card['color'],
+                                               'suit': card['suit']})
+        else:
+            if type == 'pile0th':
+                card_index = 0
+                piles = self.piles
+            elif type == 'pile-1th':
+                card_index = -1
+                piles = self.piles
+            elif type == 'suit_piles':
+                card_index = -1
+                piles = self.suit_piles
+            elif type == 'play_pile':
+                card_index = -1
+                piles = self.play_piles
 
-        for index, pile in enumerate(piles):
-            if len(pile) > 0:
-                candidates.append({'candidate_type': type,
-                                   'pile_index': index,
-                                   'card_index': card_index,
-                                   'label': pile[card_index]['label'],
-                                   'value': pile[card_index]['value'],
-                                   'color': pile[card_index]['color'],
-                                   'suit': pile[card_index]['suit']})
+            for index, pile in enumerate(piles):
+                if len(pile) > 0:
+                    candidates.append({'candidate_type': type,
+                                       'pile_index': index,
+                                       'card_index': card_index,
+                                       'label': pile[card_index]['label'],
+                                       'value': pile[card_index]['value'],
+                                       'color': pile[card_index]['color'],
+                                       'suit': pile[card_index]['suit']})
         return candidates
 
     def get_targets(self, type):
@@ -642,12 +663,82 @@ class SolitaireGame:
                                        self.play_pile[-num_cards:]]))
         return moved
 
+    def cardify_candidate(self, candidate):
+        card = {'label': candidate['label'],
+                'value': candidate['value'],
+                'color': candidate['color'],
+                'suit': candidate['suit']}
+        return card
+
+    def move_partial_pile(self):
+        moved = False
+        # if self.move_number > 60:
+        # print('reached move partial pile')
+        # logging.debug('reached move partial pile')
+        candidates = self.get_candidates('pile_deep')
+        # print([(candidate['label'], candidate['card_index'], candidate['pile_len'])
+        #        for candidate in candidates])
+        suit_targets = self.get_targets('suit_piles')
+        pile_targets = self.get_candidates('pile-1th')
+        suit_moves = []
+        for candidate in candidates:
+            for suit_target in suit_targets:
+                if ((candidate['suit'] == suit_target['suit']) &
+                        (candidate['value'] == suit_target['value'] + 1)):
+                    suit_moves.append(
+                        {'label': candidate['label'],
+                         'value': candidate['value'],
+                         'color': candidate['color'],
+                         'suit': candidate['suit'],
+                         'pile': candidate['pile_index'],
+                         'index': candidate['card_index']
+                         })
+        # print('\nSuit Moves: {}'.format(suit_moves))
+        approved_moves = []
+        for suit_move in suit_moves:
+            for pile_target in pile_targets:
+                if ((suit_move['value'] == pile_target['value']) &
+                        (suit_move['color'] == pile_target['color'])):
+                    cards_uncovered = \
+                        len(self.hidden_piles[suit_move['pile']])
+                    if suit_move['index'] > 0:  # must be 0th card
+                        cards_uncovered == 0
+                    suit_move['alt_label'] = pile_target['label']
+                    suit_move['alt_pile'] = pile_target['pile_index']
+                    suit_move['cards_uncovered'] = cards_uncovered
+                    approved_moves.append(suit_move)
+                    # print('cards uncovered: {}'.
+                    #       format(suit_move['cards_uncovered']))
+        approved_moves = sorted(approved_moves,
+                                key=lambda x: x['cards_uncovered'],
+                                reverse=True)
+        # print('\nApproved Moves: {}'.format(approved_moves))
+        if len(approved_moves) > 0:
+            move = approved_moves[0]
+            from_pile = move['pile']
+            to_pile = move['alt_pile']
+            idx = move['index'] + 1  # poz of card AFTER candidate
+            card_after = self.piles[from_pile][idx]['label']
+            num_to_move = len(self.piles[from_pile]) - (move['index'] + 1)
+            # print(self.piles[from_pile][idx:])
+            # print('num_to_move: {}'.format(num_to_move))
+            for _ in range(num_to_move):
+                self.piles[to_pile].append(self.piles[from_pile].pop(idx))
+            moved = True
+            # print('ran: moved partial pile')
+            logging.debug(
+                '{}) Moved {} from {} on pile {} to {} on pile {}.'.
+                format(self.move_number, card_after, move['label'],
+                       move['pile'], move['alt_label'], move['alt_pile']))
+        return moved
+
     def play_move(self):
         # try moves in order of preference
         moved = False
         move_list = ['flip_top_hidden_card', 'move_pile_to_pile',
-                     'move_playpile_to_piles', 'move_pile_to_suitpile',
-                     'move_suitpile_back_to_pile', 'move_deck_to_playpile']
+                     'move_playpile_to_piles', 'move_suitpile_back_to_pile',
+                     'move_pile_to_suitpile', 'move_partial_pile',
+                     'move_deck_to_playpile']
         for move in move_list:
             if ((not moved) & (not self.game_lost)):
                 # if deck spins during 'move_deck_to_playpile', will mark lost
@@ -664,6 +755,7 @@ class SolitaireGame:
                                self.heart_pile + self.diamond_pile)
             if cards_suited == 52:
                 self.game_won = True
+                print('Game won.')
                 logging.debug('** Game WON **')
             elif self.move_number > max_moves:
                 print('\nError: reached max_moves. Current max_moves = {}'
@@ -688,6 +780,7 @@ class SolitaireGame:
 def main(numdecks):
 
     # prune_logfile()
+    # logging.getLogger().setLevel(logging.INFO)  # set lower when in bulk
     # with open('deck_results', 'w') as f:
     #     f.write('decknum, won, num_moves\n')
     # decks = create_random_deck_indexes(numdecks)
@@ -697,22 +790,19 @@ def main(numdecks):
     #     game.deal_piles()
     #     game.play_moves(200)
     #     game.append_result()
+    # # change this to cache results to local list and open file only once.
 
     prune_logfile()
-    with open('deck_results', 'w') as f:
-        f.write('decknum, won, num_moves\n')
     decks = create_random_deck_indexes(numdecks)
-    i = 17
+    i = 36
     game = SolitaireGame(decks[i], i)
     print('Init Deck: {}'.format([card['label'] for card in game.deck]))
     game.deal_piles()
-    game.play_moves(33)
-    logging.debug(len(game.deck))
-    game.append_result()
+    game.play_moves(126)
     game.summary()
 
     print('_____ran main_____')
 
 
 if __name__ == "__main__":
-    main(numdecks=18)
+    main(numdecks=60)
