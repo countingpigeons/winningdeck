@@ -1,4 +1,4 @@
-## Winning Deck: Predict Winning Solitaire Decks with Tensorflow and AdaBoostRegressor.
+## Winning Deck: Predict winning solitaire decks with Tensorflow and AdaBoostRegressor.
 
 Given that some shuffled decks will win and some will lose in a game of Solitaire (aka Klondike), can we generalize features of winning decks and predict if a newly shuffled deck will win? Or, are there so many possible winning decks and move-orders that patterns in winning training decks could never generalize to unseen decks?
 
