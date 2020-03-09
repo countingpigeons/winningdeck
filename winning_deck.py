@@ -16,7 +16,7 @@ def prune_logfile():
 
 
 def create_random_deck_indexes(n=5):
-    index = [i for i in range(0, 52)]
+    index = [i for i in range(1, 53)]
     indicies = []
     j = 0
     while j < n:
@@ -26,7 +26,6 @@ def create_random_deck_indexes(n=5):
         indicies.append(randindex)
         j += 1
 
-    # print(indicies)
     return indicies
 
 
@@ -47,28 +46,39 @@ class Base:
     cardvals = [card for card in range(2, 14)] + [1]
     cardvals52 = cardvals * 4
     colors52 = ['Black'] * 26 + ['Red'] * 26
+    cardindex52 = [int for int in range(1, 53)]
 
     deck = [list(item) for item in
-            zip(labels52, cardvals52, colors52, suits52)]
+            zip(labels52, cardvals52, colors52, suits52, cardindex52)]
+
+    # print('deck: {}'.format(deck))
 
 
 class SolitaireGame:
 
-    def __init__(self, randindex, decknum=0):
-        # add this specific randindex to base.deck and sort it by this index.
+    suit_index = {'S': 0, 'C': 1, 'H': 2, 'D': 3}
+
+    def __init__(self, randindex, decknum=0, verbose=False,
+                 factory_deck_columns=False):
+        if verbose:
+            print('randindex: {}'.format(randindex))
         deck = []
-        i = 0
-        for item in Base.deck:
-            deck.append(item + [randindex[i]])
-            i += 1
-        deck = sorted(deck, key=lambda x: x[4])
-        # deck = [tuple(item) for item in deck] # tuple safer, but inconvenient
+        if factory_deck_columns:  # features will reflect specific card labels.
+            i = 0
+            for item in Base.deck:
+                deck.append(item + [randindex[i]])
+                i += 1
+            deck = sorted(deck, key=lambda x: x[5])
+        else:  # features will reflect locations in each shuffled deck.
+            for index in randindex:
+                card = list(filter(lambda x: x[4] == index, Base.deck))[0]
+                deck.append(card)
+
         deck = list(
             map(lambda x: {'label': x[0], 'value': x[1],
                            'color': x[2], 'suit': x[3]}, deck))
         self.deck = deck
         self.decknum = decknum
-        # print([card['label'] for card in deck])
         self.spade_pile = []
         self.club_pile = []
         self.heart_pile = []
@@ -89,7 +99,6 @@ class SolitaireGame:
         self.pile7_hidden = []
         self.suit_piles = [self.spade_pile, self.club_pile,
                            self.heart_pile, self.diamond_pile]
-        self.suit_index = {'S': 0, 'C': 1, 'H': 2, 'D': 3}
         self.hidden_piles = [self.pile1_hidden, self.pile2_hidden,
                              self.pile3_hidden, self.pile4_hidden,
                              self.pile5_hidden, self.pile6_hidden,
@@ -101,6 +110,10 @@ class SolitaireGame:
         self.game_lost = False
         self.game_won = False
         self.move_number = 0
+        self.verbose = verbose
+        self.randindex = randindex
+
+# Core:
 
     def summary(self):
         pile_index = 0
@@ -128,10 +141,6 @@ class SolitaireGame:
         else:
             print('N/A')
         print('# in deck: {}'.format(len(self.deck)))
-        # print('Deck:')
-        # for card in self.deck:
-        #     print(card['label'])
-
         print('game_lost: ', self.game_lost)
         print('game_won: ', self.game_won)
         print('num moves: {}'.format(self.move_number))
@@ -185,31 +194,73 @@ class SolitaireGame:
             # print(self.pile7_hidden)
             print('_____ran deal_piles_____')
 
+    def play_move(self):
+        # try moves in order of preference
+        moved = False
+        move_list = ['flip_top_hidden_card', 'move_pile_to_pile',
+                     'move_playpile_to_piles', 'back_play',
+                     'move_pile_to_suitpile', 'move_partial_pile',
+                     'move_deck_to_playpile']
+        for move in move_list:
+            if ((not moved) & (not self.game_lost)):
+                # if deck spins during 'move_deck_to_playpile', will mark lost
+                this_move = getattr(self, move)
+                moved = this_move()
+            else:
+                return
+
+    def play_moves(self, max_moves=1):
+
+        while not (self.game_won | self.game_lost):
+            self.move_number += 1
+            cards_suited = len(self.spade_pile + self.club_pile +
+                               self.heart_pile + self.diamond_pile)
+            if cards_suited == 52:
+                self.game_won = True
+                if self.verbose:
+                    print('Game won.')
+                logging.debug('** Game WON **')
+            elif self.move_number > max_moves:
+                logging.debug(
+                    '\nError: reached max_moves. Current max_moves = {}'.
+                    format(max_moves))
+                if self.verbose:
+                    print('\nError: reached max_moves. Current max_moves = {}'
+                          .format(max_moves))
+                self.game_lost = True
+            else:
+                self.play_move()
+
+        logging.debug('_____ran play_moves_____. num_moves = {}'
+                      .format(self.move_number - 1))
+        if self.verbose:
+            print('_____ran play_moves_____')
+
+# Moves:
+
     def move_pile_to_suitpile(self):
-        # move pile2pile checks if one of these would uncover more cards and
-        # fails if so to allow this to run in its place.
-        # logging.debug(
-        #     '** entered p2sp ** {}'.format(self.pile3[0]['label'],
-        #                                    self.pile7[-1]['label']))
+
         moved = False
         moves = []
         candidates = self.get_candidates('pile-1th')
         targets = self.get_targets('suit_piles')
         for candidate in candidates:
+            num_cards = len(self.hidden_piles[candidate['pile_index']])
+            len_pile = len(self.piles[candidate['pile_index']])
+            if len_pile > 1:
+                num_cards = 0
             for target in targets:
-                if ((candidate['value'] == target['value'] + 1) &
-                        (candidate['suit'] == target['suit'])):
-                    moves.append({'candidate': candidate['label'],
-                                  'candidate_pile': candidate['pile_index'],
-                                  'candidate_card_index':
-                                      candidate['card_index'],
-                                  'cards_uncovered':
-                                      len(self.hidden_piles[
-                                          candidate['pile_index']]),
-                                  'target': target['label'],
-                                  'target_pile': target['pile_index'],
-                                  'target_card_index': target['card_index'],
-                                  'target_suit': candidate['suit']})
+                if self.playable(candidate, target, 'suit'):
+                    if not self.deferred(candidate):
+                        moves.append(
+                            {'candidate': candidate['label'],
+                             'candidate_pile': candidate['pile_index'],
+                             'candidate_card_index': candidate['card_index'],
+                             'cards_uncovered': num_cards,
+                             'target': target['label'],
+                             'target_pile': target['pile_index'],
+                             'target_card_index': target['card_index'],
+                             'target_suit': candidate['suit']})
         if len(moves) > 0:
             moves = sorted(moves, key=lambda x: x['cards_uncovered'],
                            reverse=True)
@@ -218,86 +269,11 @@ class SolitaireGame:
             pile_idx = move['candidate_pile']
             self.suit_piles[suit_idx].append(self.piles[pile_idx].pop(-1))
             moved = True
-            # print('ran: moved pile to suitpile')
-            # print('Moved card to {} suitpile'.format(move['target_suit']))
+            if self.verbose:
+                print('ran: moved pile to suitpile')
             logging.debug('{}) Moved {} from pile {} to {} pile.'.
                           format(self.move_number, move['candidate'],
                                  pile_idx, move['target_suit']))
-        return moved
-
-    def move_suitpile_back_to_pile(self):
-        moved = False
-        backmovers = self.get_candidates('suit_piles')
-        approved_backmovers = []  # stage backmovers w/ # cards uncoverable
-        targets = self.get_targets('piles')
-        pile_candidates = self.get_candidates('pile0th')
-
-        for backmover in backmovers:
-            if backmover['value'] >= 3:  # aces and twos never useful
-                card = {'label': backmover['label'],
-                        'value': backmover['value'],
-                        'color': backmover['color'],
-                        'suit': backmover['suit']}
-                if self.card_playable(card, suitpiles=False):
-                    for pcandidate in pile_candidates:
-                        num_hidden = \
-                            len(self.hidden_piles[pcandidate['pile_index']])
-                        if ((pcandidate['value'] == backmover['value'] - 1) &
-                                (pcandidate['color'] != backmover['color'])):
-                            approved_backmovers.append(
-                                {'pile': backmover['pile_index'],
-                                 'pcandidate': pcandidate['label'],
-                                 'num_cards': num_hidden
-                                 })
-                    if len(self.play_pile) > 0:
-                        ppcandidate = self.play_pile[-1]
-                        if ((ppcandidate['value'] == backmover['value'] - 1) &
-                                (ppcandidate['color'] != backmover['color'])):
-                            approved_backmovers.append(
-                                {'pile': backmover['pile_index'],
-                                 'pcandidate': ppcandidate['label'],
-                                 'num_cards': 0
-                                 })
-        # pick backmover that can uncover the most cards under dependent
-        approved_backmovers = sorted(
-            approved_backmovers,
-            key=lambda x: x['num_cards'],
-            reverse=True)
-        if len(approved_backmovers) > 0:
-            approved_backmove = approved_backmovers[0]
-            backmove_card = self.suit_piles[approved_backmove['pile']][-1]
-            moves = []
-            for target in targets:
-                if ((backmove_card['value'] == target['value'] - 1) &
-                        (backmove_card['color'] != target['color'])):
-                    # warning: dubious sort criteria. think this through.
-                    len_target_pile = len(self.piles[target['pile_index']])
-                    # print('target: {}'.format(target))
-                    moves.append({'candidate': backmove_card['label'],
-                                  'candidate_pile':
-                                  approved_backmove['pile'],
-                                  'candidate_card_index': -1,
-                                  'len_target_pile': len_target_pile,
-                                  'target': target['label'],
-                                  'target_pile': target['pile_index'],
-                                  'target_card_index': target['card_index']})
-            # pick target with smallest pile (dubious). prob distance to its
-            # current suitpile max is best. i.e. will it be playable to
-            # suitpile soon? if so, play backmover to the other suited card.
-            moves = sorted(moves,
-                           key=lambda x: x['len_target_pile'],
-                           reverse=False)
-            if len(moves) > 0:
-                move = moves[0]
-                from_idx = move['candidate_pile']
-                to_idx = move['target_pile']
-                self.piles[to_idx].append(self.suit_piles[from_idx].pop(-1))
-                # print('ran: move suitpile back to pile')
-                moved = True
-                logging.debug('{}) Moved {} from suitpile {} to {} on pile {}'.
-                              format(self.move_number, move['candidate'],
-                                     move['candidate'][-1], move['target'],
-                                     move['target_pile']))
         return moved
 
     def flip_top_hidden_card(self):
@@ -313,14 +289,12 @@ class SolitaireGame:
                                           flipped_card['label'],
                                           pile_index))
                     moved = True
-                    # print('ran: flip_top_hidden_card')
+                    if self.verbose:
+                        print('ran: flip_top_hidden_card')
             pile_index += 1
         return moved
 
     def move_pile_to_pile(self):
-        # logging.debug(
-        #     '** entered p2p ** {} {}'.format(self.pile3[0]['label'],
-        #                                      self.pile7[-1]['label']))
         moved = False
         candidates = self.get_candidates('pile0th')
         targets = self.get_targets('piles')
@@ -329,14 +303,13 @@ class SolitaireGame:
         suittargets = self.get_targets('suit_piles')
         cards_uncovered_by_suit_play = 0
         for suitcandidate in suitcandidates:
-            # len_candidate_pile = len(self.piles[suitcandidate['pile_index']])
             for suittarget in suittargets:
-                i = 0
-                if ((suitcandidate['value'] == suittarget['value'] + 1) &
-                        (suitcandidate['suit'] == suittarget['suit'])):
-                    i = len(self.hidden_piles[suitcandidate['pile_index']])
+                num_hidden = 0
+                if self.playable(suitcandidate, suittarget, 'suit'):
+                    num_hidden = \
+                        len(self.hidden_piles[suitcandidate['pile_index']])
                     cards_uncovered_by_suit_play = \
-                        max(cards_uncovered_by_suit_play, i)
+                        max(cards_uncovered_by_suit_play, num_hidden)
                     if len(self.piles[suitcandidate['pile_index']]) > 1:
                         cards_uncovered_by_suit_play = 0  # only 0th uncovers
         moves = []
@@ -358,7 +331,8 @@ class SolitaireGame:
                 suit_pile = self.suit_index[candidate['suit']]
                 from_pile = candidate['pile_index']
                 self.suit_piles[suit_pile].append(self.piles[from_pile].pop())
-                # print('ran: move pile to suitpile (ace)')
+                if self.verbose:
+                    print('ran: move pile to suitpile (ace)')
                 moved = True
                 logging.debug('{}) Moved {} from pile {} to {} pile.'.
                               format(self.move_number, candidate['label'],
@@ -368,20 +342,20 @@ class SolitaireGame:
                 if cards_uncovered >= cards_uncovered_by_suit_play:
                     for target in targets:
                         if ((candidate['pile_index'] != target['pile_index'])
-                                & (candidate['value'] == target['value']-1)
-                                & (candidate['color'] != target['color'])
+                                & (self.playable(candidate, target, 'pile'))
                                 & (cards_uncovered >=
                                    cards_uncovered_by_suit_play)):
-                            moves.append({'candidate': candidate['label'],
-                                          'candidate_pile':
-                                          candidate['pile_index'],
-                                          'candidate_card_index':
-                                              candidate['card_index'],
-                                          'cards_uncovered': cards_uncovered,
-                                          'target': target['label'],
-                                          'target_pile': target['pile_index'],
-                                          'target_card_index':
-                                          target['card_index']})
+                            if not self.deferred(candidate):
+                                moves.append(
+                                    {'candidate': candidate['label'],
+                                     'candidate_pile': candidate['pile_index'],
+                                     'candidate_card_index':
+                                        candidate['card_index'],
+                                     'cards_uncovered': cards_uncovered,
+                                     'target': target['label'],
+                                     'target_pile': target['pile_index'],
+                                     'target_card_index':
+                                        target['card_index']})
             # pick candidate that uncovers the most cards
         moves = sorted(moves, key=lambda x: x['cards_uncovered'], reverse=True)
 
@@ -402,9 +376,11 @@ class SolitaireGame:
                                   from_pile, chosen_move['target'],
                                   to_pile))
             moved = True
-            # print('ran: move_pile_to_pile')
+            if self.verbose:
+                print('ran: move_pile_to_pile')
         else:
-            # print('No candidates w/ len > suitplay')
+            if self.verbose:
+                print('No candidates w/ len > suitplay')
             moved = False
         return moved
 
@@ -428,7 +404,8 @@ class SolitaireGame:
                         pile_idx = move['target_pile']
                         pile = self.piles[pile_idx]
                         pile.append(self.play_pile.pop(-1))
-                        # print('ran: moved playpile King to empty column')
+                        if self.verbose:
+                            print('ran: moved playpile King to empty column')
                         moved = True
                         logging.debug('{}) Moved {} from playpile to pile {}.'.
                                       format(self.move_number,
@@ -442,14 +419,14 @@ class SolitaireGame:
                     logging.debug(
                         '{}) Moved {} from playpile to {} pile.'.
                         format(self.move_number, card['label'], card['suit']))
-                    # print('ran: move playpile to suitpile (ace)')
+                    if self.verbose:
+                        print('ran: move playpile to suitpile (ace)')
                     return moved
                 else:
                     pile_targets = self.get_targets('piles')
                     suit_targets = self.get_targets('suit_piles')
                     for target in pile_targets:
-                        if ((card['value'] == target['value'] - 1) &
-                                (card['color'] != target['color'])):
+                        if self.playable(card, target, 'pile'):
                             moves.append({'target_type': 'pile',
                                           'target': target['label'],
                                           'target_pile': target['pile_index'],
@@ -457,8 +434,7 @@ class SolitaireGame:
                                           target['card_index']
                                           })
                     for target in suit_targets:
-                        if ((card['value'] == target['value'] + 1) &
-                                (card['suit'] == target['suit'])):
+                        if self.playable(card, target, 'suit'):
                             moves.append({'target_type': 'suitpile',
                                           'target': target['label'],
                                           'target_pile': target['pile_index'],
@@ -487,25 +463,254 @@ class SolitaireGame:
                                 '{}) Moved {} from playpile to {} pile.'
                                 .format(self.move_number, card['label'],
                                         card['suit']))
-
-                        # logging.debug(
-                        #     '{}) Moved {} from playpile to {} on pile {}.'
-                        #     .format(self.move_number, card['label'],
-                        #             move['target'], move['target_pile']))
-                        # print('ran: moved_playpile_to_piles')
+                        if self.verbose:
+                            print('ran: moved_playpile_to_piles')
                         return moved
             else:
                 moved = False
-                # print('card not playable')
+                if self.verbose:
+                    print('ran: moved_pp2p. card not playable')
         return moved
+
+    def move_deck_to_playpile(self):
+        # move until find a playable card, OR exhaust cards without finding a
+        # playable card, in which case game is LOST.
+        moved = False
+        playable = False
+        deck_refilled = False
+        while not playable:
+            if ((len(self.deck) == 0) & (len(self.play_pile) == 0)):
+                self.game_lost = True
+                moved = True
+                if self.verbose:
+                    print('Deck exhausted. Game lost.')
+                logging.debug('{}) Deck exhausted. Game lost.'.
+                              format(self.move_number))
+                return moved
+            # refill empty deck from playpile if necessary
+            elif ((len(self.deck) == 0) & (len(self.play_pile) > 0)):
+                # unless already refilled once
+                if deck_refilled:
+                    # put additional any_desperados boolean here
+                    self.game_lost = True
+                    moved = True
+                    if self.verbose:
+                        print('Deck exhausted. Game lost.')
+                    logging.debug('{}) Deck exhausted. Game lost.'.
+                                  format(self.move_number))
+                    return moved
+                else:
+                    # warning: should concatenation be replaced by append/pop?
+                    self.deck = self.deck + self.play_pile
+                    self.play_pile.clear()
+                    deck_refilled = True
+                    if self.verbose:
+                        print('ran: swapped playpile back to deck')
+                    logging.debug(
+                        '{}) Reset {} cards from play_pile back to deck.'
+                        .format(self.move_number, len(self.deck)))
+            # or just deal out cards onto the playpile
+            elif len(self.deck) > 0:
+                num_cards = min(3, len(self.deck))
+                card_played = 1
+                while card_played <= num_cards:
+                    self.play_pile.append(self.deck.pop(0))
+                    card_played += 1
+                moved = True
+                playable = self.card_playable(self.play_pile[-1])
+
+                if self.verbose:
+                    print('ran: move_deck_to_playpile')
+                logging.debug('{}) Moved {} cards ({}) from deck to play_pile.'
+                              .format(self.move_number, num_cards,
+                                      [card['label'] for card in
+                                       self.play_pile[-num_cards:]]))
+        return moved
+
+    def move_partial_pile(self):
+        moved = False
+        candidates = self.get_candidates('pile_deep')
+        suit_targets = self.get_targets('suit_piles')
+        pile_targets = self.get_candidates('pile-1th')
+        suit_moves = []
+        for candidate in candidates:
+            for suit_target in suit_targets:
+                if self.playable(candidate, suit_target, 'suit'):
+                    suit_moves.append(
+                        {'label': candidate['label'],
+                         'value': candidate['value'],
+                         'color': candidate['color'],
+                         'suit': candidate['suit'],
+                         'pile': candidate['pile_index'],
+                         'index': candidate['card_index']
+                         })
+        approved_moves = []
+        for suit_move in suit_moves:
+            for pile_target in pile_targets:
+                if ((suit_move['value'] == pile_target['value']) &
+                        (suit_move['color'] == pile_target['color'])):
+                    cards_uncovered = \
+                        len(self.hidden_piles[suit_move['pile']])
+                    if suit_move['index'] > 0:  # must be 0th card
+                        cards_uncovered == 0
+                    suit_move['alt_label'] = pile_target['label']
+                    suit_move['alt_pile'] = pile_target['pile_index']
+                    suit_move['cards_uncovered'] = cards_uncovered
+                    approved_moves.append(suit_move)
+        approved_moves = sorted(approved_moves,
+                                key=lambda x: x['cards_uncovered'],
+                                reverse=True)
+        if len(approved_moves) > 0:
+            move = approved_moves[0]
+            from_pile = move['pile']
+            to_pile = move['alt_pile']
+            idx = move['index'] + 1  # poz of card AFTER candidate
+            card_after = self.piles[from_pile][idx]['label']
+            num_to_move = len(self.piles[from_pile]) - (move['index'] + 1)
+            for _ in range(num_to_move):
+                self.piles[to_pile].append(self.piles[from_pile].pop(idx))
+            moved = True
+            if self.verbose:
+                print('ran: moved partial pile')
+            logging.debug(
+                '{}) Moved {} from {} on pile {} to {} on pile {}.'.
+                format(self.move_number, card_after, move['label'],
+                       move['pile'], move['alt_label'], move['alt_pile']))
+        return moved
+
+    def back_play(self, candidate={}):
+        # TO DO: only works for playpile. Add support for pile candidates!
+        moved = False
+        verify = False
+        candidates = []
+        kings = []
+
+        if candidate != {}:
+            # add candidate to list to sync w/ candidate logic below
+            candidates.append(candidate)
+            verify = True
+        else:
+            # add a.) playpile, b.) column 'openers' if any needy kings,
+            #     c.) uncoverers
+            if len(self.play_pile) > 0:
+                playpile_candidate = self.get_candidates('play_pile')[0]
+                candidates.append(playpile_candidate)
+                if playpile_candidate['value'] == 13:
+                    kings.append(playpile_candidate)
+
+            pile_kings = self.get_candidates('pile-1th')
+            pile_kings = list(filter(lambda x: x['value'] == 13, pile_kings))
+            pile_kings = list(filter(
+                lambda x: len(self.hidden_piles[x['pile_index']]) > 0,
+                pile_kings))
+            kings.extend(pile_kings)
+
+            if len(kings) > 0:
+                candidates.extend(self.get_candidates('column_openers'))
+
+            uncoverers = self.get_candidates('pile0th')
+            uncoverers = list(filter(
+                lambda x: len(self.hidden_piles[x['pile_index']]) > 0,
+                uncoverers))
+            candidates.extend(uncoverers)
+
+        if len(candidates) == 0:
+            moved = False
+            return moved
+
+        backmovers = self.get_candidates('suitpile_deep')
+        open_columns = self.get_targets('open_column')
+
+        worth_trying = False
+        for candidate in candidates:
+            for backmover in backmovers:
+                if self.playable(candidate, backmover, 'pile'):
+                    worth_trying = True
+
+        move_queue = []
+        local_backmovers = []
+        if worth_trying:
+            for candidate in candidates:
+                local_backmovers = self.get_candidates('suitpile_deep')
+                move_queue.clear()
+                targets = self.get_candidates('pile-1th')
+                # add targets for Kings
+                for column in open_columns:
+                    targets.append({
+                        'candidate_type': column['target_type'],
+                        'pile_index': column['pile_index'],
+                        'card_index': column['card_index'],
+                        'label': column['label'],
+                        'value': 14,  # to allow King to play on it naturally
+                        'color': 'na',
+                        'suit': 'na'
+                    })
+                target_queue = []
+                for i, backmover in enumerate(local_backmovers):
+                    backmovers_in_pile = list(filter(
+                        lambda x: x['pile_index'] == backmover['pile_index'],
+                        local_backmovers))
+                    free_card_index = max(
+                        [item['card_index'] for item in backmovers_in_pile])
+                    card_free = backmover['card_index'] == free_card_index
+                    if not card_free:
+                        continue
+                    target_queue.clear()
+                    for j, target in enumerate(targets):
+                        if self.playable(backmover, target, 'pile'):
+                            target_queue.append(
+                                {'bm_pile': backmover['pile_index'],
+                                 'bm_card': backmover['card_index'],
+                                 'bm_label': backmover['label'],
+                                 'bm_value': backmover['value'],
+                                 'bm_color': backmover['color'],
+                                 'bm_suit': backmover['suit'],
+                                 'target_pile': target['pile_index'],
+                                 'target_label': target['label'],
+                                 'target_index': j
+                                 })
+
+                    if len(target_queue) > 0:
+                        move = target_queue[0]
+                        move_queue.append(move)
+                        backmover['pile_index'] = \
+                            targets[move['target_index']]['pile_index']
+                        targets[move['target_index']] = backmover.copy()
+                        # leave backmover in backmovers for indexing but mangle
+                        local_backmovers[i]['card_index'] = -999
+                        local_backmovers[i]['pile_index'] = -999
+
+                        if self.playable(candidate, backmover, 'pile'):
+                            if verify:
+                                # return True to card_playable func to
+                                # stop dealing
+                                return True
+                            for move in move_queue:
+                                from_pile = move['bm_pile']
+                                to_pile = move['target_pile']
+                                self.piles[to_pile].append(
+                                    self.suit_piles[from_pile].pop(-1))
+                                logging.debug(
+                                    '{}) Reversed {} from suits to {} on\
+                                     pile {}'.
+                                    format(self.move_number,
+                                           move['bm_label'],
+                                           move['target_label'],
+                                           move['target_index']
+                                           ))
+                            if self.verbose:
+                                print('ran: backplay cards')
+                            moved = True
+                            break
+        return moved
+
+# Utilities
 
     def get_candidates(self, type):
         candidates = []
         card_index = 0
-        # piles = self.piles
 
         if type == 'pile_deep':
-            # card_index = -1
             piles = self.piles
             for index, pile in enumerate(piles):
                 len_pile = len(pile)
@@ -520,6 +725,35 @@ class SolitaireGame:
                                                'value': card['value'],
                                                'color': card['color'],
                                                'suit': card['suit']})
+
+        elif type == 'suitpile_deep':
+            piles = self.suit_piles
+            for index, pile in enumerate(piles):
+                len_pile = len(pile)
+                for card_index, card in enumerate(pile):
+                    candidates.append({'candidate_type': type,
+                                       'pile_index': index,
+                                       'card_index': card_index,
+                                       # 'pile_len': len_pile,
+                                       'label': card['label'],
+                                       'value': card['value'],
+                                       'color': card['color'],
+                                       'suit': card['suit']})
+            if len(candidates) > 0:
+                candidates = sorted(candidates,
+                                    key=lambda x: x['value'],
+                                    reverse=True)
+
+        elif type == 'column_openers':
+            piles = self.piles
+            candidates = self.get_candidates('pile0th')
+            candidates = list(filter(
+                lambda x: len(self.hidden_piles[x['pile_index']]) == 0,
+                candidates))
+            candidates = list(filter(
+                lambda x: x['value'] != 13,
+                candidates))
+
         else:
             if type == 'pile0th':
                 card_index = 0
@@ -546,6 +780,7 @@ class SolitaireGame:
         return candidates
 
     def get_targets(self, type):
+        # should get RID of this in favor of get_candidates for all calls
         targets = []
         piles = []
 
@@ -587,222 +822,203 @@ class SolitaireGame:
 
         if card['value'] == 1:  # this is an Ace
             playable = True
-            # self.game_lost = True
             return playable
         if card['value'] == 13:
+            # check for open column
             for i in range(7):
                 if ((len(self.piles[i]) == 0)
                         & (len(self.hidden_piles[i]) == 0)):
                     playable = True
-                    # print('found a King playable')
                     return playable
+            # if none, look for 'openable' column of a play we've deferred
+            deferred = self.get_candidates('pile0th')
+            deferred = list(filter(lambda x: not x['value'] == 13, deferred))
+            deferred = list(filter(lambda x: not self.deferred(x), deferred))
+
+            def deferred_can_play(card):
+                return ((self.card_playable(card, suitpiles=False)) |
+                        ((len(self.piles[card['pile_index']]) == 1) &
+                         (self.card_playable(card))))
+            deferred = list(filter(
+                lambda x: deferred_can_play(x),
+                deferred))
+
+            if len(deferred) > 0:
+                playable = True
+                return playable
 
         pile_targets = self.get_targets('piles')
         for target in pile_targets:
-            if ((card['value'] == target['value'] - 1)
-                    & (card['color'] != target['color'])):
+            if self.playable(card, target, 'pile'):
                 playable = True
                 return playable
         # allow exclusion of suitpiles for move suitpiles to piles
         if suitpiles:
             suit_targets = self.get_targets('suit_piles')
             for target in suit_targets:
-                if ((card['value'] == target['value'] + 1)
-                        & (card['suit'] == target['suit'])):
+                if self.playable(card, target, 'suit'):
                     playable = True
                     return playable
+        if not playable:
+            # back_play with a candidate returns boolean
+            playable = self.back_play(card)
+
         return playable
 
-    def move_deck_to_playpile(self):
-        # move until find a playable card, OR exhaust cards without finding a
-        # playable card, in which case game is LOST.
-        moved = False
+    def playable(self, candidate, target, type):
         playable = False
-        deck_refilled = False
-        while not playable:
-            if ((len(self.deck) == 0) & (len(self.play_pile) == 0)):
-                self.game_lost = True
-                moved = True
-                print('Deck exhausted. Game lost.')
-                logging.debug('{}) Deck exhausted. Game lost.'.
-                              format(self.move_number))
-                return moved
-            # refill empty deck from playpile if necessary
-            elif ((len(self.deck) == 0) & (len(self.play_pile) > 0)):
-                # unless already refilled once
-                if deck_refilled:
-                    self.game_lost = True
-                    moved = True
-                    print('Deck exhausted. Game lost.')
-                    logging.debug('{}) Deck exhausted. Game lost.'.
-                                  format(self.move_number))
-                    return moved
-                else:
-                    # warning: should concatenation be replaced by append/pop?
-                    self.deck = self.deck + self.play_pile
-                    self.play_pile.clear()
-                    deck_refilled = True
-                    # print('ran: swapped playpile back to deck')
-                    logging.debug(
-                        '{}) Reset {} cards from play_pile back to deck.'
-                        .format(self.move_number, len(self.deck)))
-            # or just deal out cards onto the playpile
-            elif len(self.deck) > 0:
-                num_cards = min(3, len(self.deck))
-                card_played = 1
-                while card_played <= num_cards:
-                    self.play_pile.append(self.deck.pop(0))
-                    card_played += 1
-                moved = True
-                playable = self.card_playable(self.play_pile[-1])
+        if type == 'suit':
+            if ((candidate['value'] == target['value'] + 1) &
+                    (candidate['suit'] == target['suit'])):
+                playable = True
+        elif type == 'pile':
+            if ((candidate['value'] == target['value'] - 1) &
+                    (candidate['color'] != target['color'])):
+                playable = True
+        return playable
 
-                # print('ran: move_deck_to_playpile')
-                logging.debug('{}) Moved {} cards ({}) from deck to play_pile.'
-                              .format(self.move_number, num_cards,
-                                      [card['label'] for card in
-                                       self.play_pile[-num_cards:]]))
-        return moved
+    def deferred(self, candidate):
+        # false IF: (either ace or two), (not a column clearing move), (makes a
+        # valuable move possible), (opens a column for a needy King), (all
+        # lower val cards are already suited)
+        deferred = True
+        # aces and twos never deferred
+        if candidate['value'] < 3:
+            deferred = False
+            return deferred
 
-    def cardify_candidate(self, candidate):
-        card = {'label': candidate['label'],
-                'value': candidate['value'],
-                'color': candidate['color'],
-                'suit': candidate['suit']}
-        return card
+        pindex = candidate['pile_index']
+        cards_hidden = len(self.hidden_piles[pindex])
+        # note: suitplay candidates must have pile len == 1. fix later.
+        col_clearer = ((candidate['card_index'] == 0) &
+                       (cards_hidden == 0))
+        if not col_clearer:
+            deferred = False
+            return deferred
+        else:
+            # 1st check if all potential dependent cards are suited already
+            suited = self.get_candidates('suitpile_deep')
+            num_lower_dependent_suited = len(list(filter(
+                lambda x: ((x['value'] == candidate['value'] - 1) &
+                           (x['color'] != candidate['color'])),
+                suited)))
+            num_twolower_samecolor_suited = len(list(filter(
+                lambda x: ((x['value'] == candidate['value'] - 2) &
+                           (x['color'] == candidate['color']) &
+                           (x['suit'] != candidate['suit'])),
+                suited)))
+            if ((num_lower_dependent_suited == 2) &
+                    (num_twolower_samecolor_suited == 1)):
+                deferred = False
+                return deferred
+            # a king not on its own column needs a free column
+            candidates = self.get_candidates('pile0th')
+            kings = list(filter(
+                lambda x: ((x['value'] == 13) &
+                           (len(self.hidden_piles[x['pile_index']]) > 0)),
+                candidates))
+            play_pile = self.get_candidates('play_pile')
+            if len(play_pile) > 0:
+                play_card = play_pile[0]
+                if play_card['value'] == 13:
+                    kings.append(play_card)
+            if len(kings) > 0:
+                deferred = False
+                return deferred
+            # TO DO: add support for 'chainplay'. Single candidate on blank
+            # column shouldn't be deferred if playing it allows a meaningful
+            # subsequent play.
+        return deferred
 
-    def move_partial_pile(self):
-        moved = False
-        # if self.move_number > 60:
-        # print('reached move partial pile')
-        # logging.debug('reached move partial pile')
-        candidates = self.get_candidates('pile_deep')
-        # print([(candidate['label'], candidate['card_index'], candidate['pile_len'])
-        #        for candidate in candidates])
-        suit_targets = self.get_targets('suit_piles')
-        pile_targets = self.get_candidates('pile-1th')
-        suit_moves = []
-        for candidate in candidates:
-            for suit_target in suit_targets:
-                if ((candidate['suit'] == suit_target['suit']) &
-                        (candidate['value'] == suit_target['value'] + 1)):
-                    suit_moves.append(
-                        {'label': candidate['label'],
-                         'value': candidate['value'],
-                         'color': candidate['color'],
-                         'suit': candidate['suit'],
-                         'pile': candidate['pile_index'],
-                         'index': candidate['card_index']
-                         })
-        # print('\nSuit Moves: {}'.format(suit_moves))
-        approved_moves = []
-        for suit_move in suit_moves:
-            for pile_target in pile_targets:
-                if ((suit_move['value'] == pile_target['value']) &
-                        (suit_move['color'] == pile_target['color'])):
-                    cards_uncovered = \
-                        len(self.hidden_piles[suit_move['pile']])
-                    if suit_move['index'] > 0:  # must be 0th card
-                        cards_uncovered == 0
-                    suit_move['alt_label'] = pile_target['label']
-                    suit_move['alt_pile'] = pile_target['pile_index']
-                    suit_move['cards_uncovered'] = cards_uncovered
-                    approved_moves.append(suit_move)
-                    # print('cards uncovered: {}'.
-                    #       format(suit_move['cards_uncovered']))
-        approved_moves = sorted(approved_moves,
-                                key=lambda x: x['cards_uncovered'],
-                                reverse=True)
-        # print('\nApproved Moves: {}'.format(approved_moves))
-        if len(approved_moves) > 0:
-            move = approved_moves[0]
-            from_pile = move['pile']
-            to_pile = move['alt_pile']
-            idx = move['index'] + 1  # poz of card AFTER candidate
-            card_after = self.piles[from_pile][idx]['label']
-            num_to_move = len(self.piles[from_pile]) - (move['index'] + 1)
-            # print(self.piles[from_pile][idx:])
-            # print('num_to_move: {}'.format(num_to_move))
-            for _ in range(num_to_move):
-                self.piles[to_pile].append(self.piles[from_pile].pop(idx))
-            moved = True
-            # print('ran: moved partial pile')
-            logging.debug(
-                '{}) Moved {} from {} on pile {} to {} on pile {}.'.
-                format(self.move_number, card_after, move['label'],
-                       move['pile'], move['alt_label'], move['alt_pile']))
-        return moved
-
-    def play_move(self):
-        # try moves in order of preference
-        moved = False
-        move_list = ['flip_top_hidden_card', 'move_pile_to_pile',
-                     'move_playpile_to_piles', 'move_suitpile_back_to_pile',
-                     'move_pile_to_suitpile', 'move_partial_pile',
-                     'move_deck_to_playpile']
-        for move in move_list:
-            if ((not moved) & (not self.game_lost)):
-                # if deck spins during 'move_deck_to_playpile', will mark lost
-                this_move = getattr(self, move)
-                moved = this_move()
-            else:
-                return
-
-    def play_moves(self, max_moves=1):
-
-        while not (self.game_won | self.game_lost):
-            self.move_number += 1
-            cards_suited = len(self.spade_pile + self.club_pile +
-                               self.heart_pile + self.diamond_pile)
-            if cards_suited == 52:
-                self.game_won = True
-                print('Game won.')
-                logging.debug('** Game WON **')
-            elif self.move_number > max_moves:
-                print('\nError: reached max_moves. Current max_moves = {}'
-                      .format(max_moves))
-                self.game_lost = True
-            else:
-                self.play_move()
-
-        logging.debug('_____ran play_moves_____. num_moves = {}'
-                      .format(self.move_number - 1))
-        # logging.info, logging.warning
-        print('_____ran play_moves_____')
-
-    def append_result(self):
-        result = '{}, {}, {}'.format(self.decknum,
-                                     self.game_won,
-                                     self.move_number)
-        with open('deck_results', 'a') as f:
-            f.write(result+'\n')
+        logging.debug('cand: {}, piles: {}, msg: {}'.
+                      format(candidate['label'], len(self.piles), deferred))
 
 
 def main(numdecks):
+    type = 'bulk'  # bulk single testing
 
-    # prune_logfile()
-    # logging.getLogger().setLevel(logging.INFO)  # set lower when in bulk
-    # with open('deck_results', 'w') as f:
-    #     f.write('decknum, won, num_moves\n')
-    # decks = create_random_deck_indexes(numdecks)
-    #
-    # for i, deck in enumerate(decks):
-    #     game = SolitaireGame(deck, i)
-    #     game.deal_piles()
-    #     game.play_moves(200)
-    #     game.append_result()
-    # # change this to cache results to local list and open file only once.
+    if type == 'single':
+        prune_logfile()
+        decks = create_random_deck_indexes(numdecks)
+        i = 0
+        game = SolitaireGame(decks[i], i, verbose=False,
+                             factory_deck_columns=False)
+        print('Init Deck: {}'.format([card['label'] for card in game.deck]))
+        game.deal_piles()
+        game.play_moves(36)
+        game.summary()
 
-    prune_logfile()
-    decks = create_random_deck_indexes(numdecks)
-    i = 36
-    game = SolitaireGame(decks[i], i)
-    print('Init Deck: {}'.format([card['label'] for card in game.deck]))
-    game.deal_piles()
-    game.play_moves(126)
-    game.summary()
+    elif type == 'bulk':
+        prune_logfile()
+        logging.getLogger().setLevel(logging.INFO)  # set lower when in bulk
+        decks = create_random_deck_indexes(numdecks)
+
+        results = []
+        for i, deck in enumerate(decks):
+            game = SolitaireGame(deck, i, factory_deck_columns=False)
+            game.deal_piles()
+            game.play_moves(220)
+            result = {'decknum': i,
+                      'won': game.game_won,
+                      'num_moves': game.move_number,
+                      'randindex': game.randindex}
+            results.append(result)
+
+        tot_decks = len(results)
+        won_decks = len(list(filter(lambda x: x['won'], results)))
+        num_moves = sum([item['num_moves'] for item in results])
+
+        print('tot_decks, won_decks, won_pct, num_moves, avg_moves')
+        print('{:,} {:,} {:.1%} {:,} {:.1f}'.
+              format(tot_decks, won_decks, won_decks / tot_decks, num_moves,
+                     num_moves/tot_decks))
+
+        with open('deck_results', 'w') as f:
+            card_labels = ''
+            for index in range(51):
+                card_labels += 'x'+str(index)+','
+            card_labels += 'x51'
+            f.write('deck,num_moves,won,' + card_labels + '\n')
+
+            for result in results:
+                card_vals = ''
+                for index in result['randindex']:
+                    card_vals += str(index) + ','
+                card_vals = card_vals[0:len(card_vals)-1]
+                line = '{}, {}, {}, {}'.format(result['decknum'],
+                                               result['num_moves'],
+                                               result['won'],
+                                               card_vals)
+                f.write(line + '\n')
+        msg = '''"deck_results" written to local directory with {} rows.'''
+        print(msg.format(tot_decks))
+
+    elif type == 'testing':
+        prune_logfile()
+        decks = create_random_deck_indexes(1)
+        i = 0
+        game = SolitaireGame(decks[i], i, verbose=False)
+        game.deck.clear()
+        game.diamond_pile.append(
+            {'label': '5_D', 'value': 5, 'color': 'Red', 'suit': 'D'})
+        game.pile1.append(
+            {'label': 'K_S', 'value': 13, 'color': 'Black', 'suit': 'S'})
+        game.pile2.append(
+            {'label': 'K_C', 'value': 13, 'color': 'Black', 'suit': 'C'})
+        game.pile2_hidden.append(
+            {'label': 'J_C', 'value': 11, 'color': 'Black', 'suit': 'C'})
+        game.pile7.append(
+            {'label': '8_H', 'value': 8, 'color': 'Red', 'suit': 'H'})
+        game.deck.append(
+            {'label': '10_H', 'value': 10, 'color': 'Red', 'suit': 'H'})
+        game.play_pile.append(
+            {'label': '3_C', 'value': 3, 'color': 'Black', 'suit': 'C'})
+
+        game.play_moves(3)
+        game.summary()
 
     print('_____ran main_____')
 
 
 if __name__ == "__main__":
-    main(numdecks=60)
+    main(numdecks=10000)
