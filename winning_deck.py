@@ -973,7 +973,7 @@ def main(numdecks):
               format(tot_decks, won_decks, won_decks / tot_decks, num_moves,
                      num_moves/tot_decks))
 
-        with open('deck_results', 'w') as f:
+        with open('winning_deck_results', 'w') as f:
             card_labels = ''
             for index in range(51):
                 card_labels += 'x'+str(index)+','
@@ -990,7 +990,7 @@ def main(numdecks):
                                                result['won'],
                                                card_vals)
                 f.write(line + '\n')
-        msg = '''"deck_results" written to local directory with {} rows.'''
+        msg = '''"winning_deck_results" written to local dir with {} rows.'''
         print(msg.format(tot_decks))
 
     elif type == 'testing':
