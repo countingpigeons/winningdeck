@@ -2,7 +2,7 @@
 
 Given that some shuffled decks will win and some will lose in a game of Solitaire (aka Klondike), can we generalize features of winning decks and predict if a newly shuffled deck will win? Or, are there so many possible winning decks and move-orders that patterns in winning training decks could never generalize to unseen decks?
 
-I did **not** find generalizable differences between winning and losing decks and am not sure this is possible given the huge space of possible shuffled decks and the statistical similarity between two hypothetical decks where a critical card is offset by a single position leading to a win or a loss. I still found the analysis really interesting, and hope others might too.
+I could not find generalizable differences between winning and losing decks and am not sure this is possible given the huge space of possible shuffled decks and the statistical similarity between hypothetical winning and losing decks where a critical card is offset by a single position. I still found the analysis really interesting, and hope others might too.
 
 Please feel free to contribute improvements in either the Solitaire playing algorithm or the notebook analysis. I'd love to know how others would approach this!
 
