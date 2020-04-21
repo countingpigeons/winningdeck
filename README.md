@@ -5,7 +5,7 @@ Can we generalize features of winning decks in Solitaire and predict if a newly 
 This project creates training data through a custom program to play lots of games of Solitaire, which is then used in a Jupyter Notebook analysis. 
 
 ### Contents:
-* <b>winning_deck.py:</b>** An OOP program in 'pure' Python (no libraries except 'logging' and 'random') that plays 10K games of Solitaire and outputs results to a .csv file.
+* <b>winning_deck.py:</b> An OOP program in 'pure' Python (no libraries except 'logging' and 'random') that plays 10K games of Solitaire and outputs results to a .csv file.
 * <b>winning_deck_results:</b> 10K rows of training data with a card ID (1-52) for each of the 52 locations in a shuffled deck (e.g. x0 = top card, x51 = bottom card), a won flag (true|false), and the num_moves (1-156) played until the deck was either won or lost.
 * <b>solitaire_analysis.ipynb:</b> A Jupyter notebook in Python/Pandas with exploratory data analysis and classification modelling with Tensorflow and AdaBoostRegressor.
 
