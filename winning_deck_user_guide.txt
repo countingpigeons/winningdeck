@@ -1,0 +1,24 @@
+The file "winning_deck.py" has three (3) modes available within the function main() for three separate use cases. The main output is USE CASE 1, so the others require manual editing of the .py file to access.
+
+
+USE CASE #1: output a .csv file for use in analysis.
+    * Run from the command line with "python winning_deck.py"
+    * If you wish to change the number of decks, edit the .py file at the very bottom to set numdecks=[desired integer].
+
+USE CASE #2: follow the process for a single deck move-by-move, to QA the logic at every decision, or further develop the algorithm.
+    * Run in interactive mode within an IDE. 
+    * In the function Main(), change the hard-coded type from 'bulk' to 'single'.
+    * Open the file "winning_deck_moves.log" alongside the code. I prefer to split it to the right of my IDE, so it has some scroll height to work with.
+    * In the IF block in Main() for type == 'single':
+        ** choose which deck number in the output you want to test. set i = this deck number.  
+        ** start with a low number in game.play_moves(). Run in the IDE and note the move history in the visible log. Also, note the PRINTED OUTPUT in the terminal which will display the appearance of the game tableau after these moves. Record your expectation for what the NEXT move should be and increment the game.play_moves() by one and re-run. The log and printed output will now increment with the next move.
+        ** Run with game.play_moves(220) to run any known deck to its end. This number keeps the program from spinning infinitely if your logic change results in repeated/cyclical moves.
+
+USE CASE #3: test new logic against a specific scenario of cards in the tableau and the playdeck.
+    * Same IDE set-up as for USE CASE #2.
+    * Instead of setting hard-coded Type to 'single'. Set it to 'testing'. 
+    * In the IF block in Main() for type == 'testing':
+        ** replace the currently displayed values for particular piles (e.g. game.diamond_pile.append(...)) to cards of your choice. The full dictionary for each card must be supplied.
+        ** run game.play_moves() with one (1) move, or other low number to test that your logic changes will have the desired outcome in these particular scenarios. 
+
+
