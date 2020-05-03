@@ -12,4 +12,5 @@ privateinfofile
 .ipynb_checkpoints
 .gitignore
 winning_deck_archive*
+winning_deck_argparse.py
 winning_deck_moves.log

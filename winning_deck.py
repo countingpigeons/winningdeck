@@ -1,6 +1,26 @@
+'''Does this show up in the HELP menu?'''
 import random
 import logging
+import argparse
 logging.basicConfig(filename='winning_deck_moves.log', level=logging.DEBUG)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--mode",
+                    help="options are \'single\' or \'bulk\' (default \'bulk\')",
+                    default='bulk')
+parser.add_argument("--max_moves",
+                    help="max number of moves to play (default 220)",
+                    type=int, default=220)
+parser.add_argument("--num_decks",
+                    help="number of decks to create (default 1000)",
+                    type=int, default=1000)
+parser.add_argument("--deck", help="which single deck to run (default 0)",
+                    type=int, default=0)
+parser.add_argument("--verbose", help="increase output verbosity",
+                    action="store_true")
+parser.add_argument("--factory_deck_columns", help="flip columns->values "
+                    "in output", action="store_true")
+args = parser.parse_args()
 
 
 def prune_logfile():
@@ -60,6 +80,7 @@ class SolitaireGame:
 
     def __init__(self, randindex, decknum=0, verbose=False,
                  factory_deck_columns=False):
+
         if verbose:
             print('randindex: {}'.format(randindex))
         deck = []
@@ -935,17 +956,18 @@ class SolitaireGame:
 
 
 def main(numdecks):
-    type = 'bulk'  # bulk single testing
+    type = args.mode
+    # 'single'  # bulk single testing
 
     if type == 'single':
         prune_logfile()
         decks = create_random_deck_indexes(numdecks)
-        i = 0
-        game = SolitaireGame(decks[i], i, verbose=False,
-                             factory_deck_columns=False)
+        i = args.deck
+        game = SolitaireGame(decks[i], i, verbose=args.verbose,
+                             factory_deck_columns=args.factory_deck_columns)
         print('Init Deck: {}'.format([card['label'] for card in game.deck]))
         game.deal_piles()
-        game.play_moves(36)
+        game.play_moves(args.max_moves)
         game.summary()
 
     elif type == 'bulk':
@@ -955,9 +977,10 @@ def main(numdecks):
 
         results = []
         for i, deck in enumerate(decks):
-            game = SolitaireGame(deck, i, factory_deck_columns=False)
+            game = SolitaireGame(
+                deck, i, factory_deck_columns=args.factory_deck_columns)
             game.deal_piles()
-            game.play_moves(220)
+            game.play_moves(args.max_moves)
             result = {'decknum': i,
                       'won': game.game_won,
                       'num_moves': game.move_number,
@@ -990,7 +1013,8 @@ def main(numdecks):
                                                result['won'],
                                                card_vals)
                 f.write(line + '\n')
-        msg = '''"winning_deck_results.csv" written to local dir with {} rows.'''
+        msg = '"winning_deck_results.csv" written to local dir '\
+              'with {} rows.'
         print(msg.format(tot_decks))
 
     elif type == 'testing':
@@ -1021,4 +1045,4 @@ def main(numdecks):
 
 
 if __name__ == "__main__":
-    main(numdecks=10000)
+    main(numdecks=args.num_decks)
