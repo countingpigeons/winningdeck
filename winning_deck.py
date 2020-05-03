@@ -1,4 +1,3 @@
-'''Does this show up in the HELP menu?'''
 import random
 import logging
 import argparse
