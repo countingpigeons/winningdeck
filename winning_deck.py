@@ -6,7 +6,8 @@ logging.basicConfig(filename='winning_deck_moves.log', level=logging.DEBUG)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode",
-                    help="options are \'single\' or \'bulk\' (default \'bulk\')",
+                    help="options are \'single\' or \'bulk\' "
+                    "(default \'bulk\')",
                     default='bulk')
 parser.add_argument("--max_moves",
                     help="max number of moves to play (default 220)",
